@@ -25,13 +25,14 @@
 
         defaultPackage = self.packages.${system}.${packageName};
 
-        devShell = pkgs.mkShell {
+        devShell = haskellPackages.shellFor {
           buildInputs = with haskellPackages; [
             haskell-language-server
             ghcid
             cabal-install
           ];
-          inputsFrom = builtins.attrValues self.packages.${system};
+          withHoogle = true;
+          packages = p: [ self.packages.${system}.${packageName} ];
         };
       });
 }
