@@ -32,24 +32,25 @@ data GameState = GameState
 
 -- | This function should calculate the opposite movement.
 opositeMovement :: Movement -> Movement
-opositeMovement = undefined
-
--- >>> opositeMovement North == South
--- >>> opositeMovement South == North
--- >>> opositeMovement East == West
--- >>> opositeMovement West == East
+opositeMovement North = South
+opositeMovement South = North
+opositeMovement East = West
+opositeMovement West = East
 
 
 -- | Purely creates a random point within the board limits
 --   You should take a look to System.Random documentation.
 --   Also, in the import list you have all relevant functions.
 makeRandomPoint :: BoardInfo -> StdGen -> (Point, StdGen)
-makeRandomPoint = undefined
+makeRandomPoint BoardInfo{height = h, width = w} g = ((x, y), g2)
+  where
+    (x, g1) = randomR (1, w) g
+    (y, g2) = randomR (1, h) g1
+
 
 {-
 We can't test makeRandomPoint, because different implementation may lead to different valid result.
 -}
-
 
 -- | Check if a point is in the snake
 inSnake :: Point -> SnakeSeq  -> Bool
