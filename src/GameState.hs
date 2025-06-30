@@ -6,10 +6,11 @@ module GameState where
 -- These are all the import. Feel free to use more if needed.
 import RenderState (BoardInfo (..), Point, DeltaBoard)
 import qualified RenderState as Board
-import Data.Sequence ( Seq(..))
+import Data.Sequence ( Seq(..) )
 import qualified Data.Sequence as S
 import System.Random ( uniformR, RandomGen(split), StdGen, Random (randomR))
 import Data.Maybe (isJust)
+import qualified Data.Foldable as F
 
 -- The movement is one of this.
 data Movement = North | South | East | West deriving (Show, Eq)
@@ -52,7 +53,7 @@ inSnake :: Point -> SnakeSeq  -> Bool
 inSnake pt SnakeSeq{snakeHead = hd, snakeBody = sq} = hd == pt || isJust (S.elemIndexL pt sq)
 
 {-|
->>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
+>>> let snake_seq = SnakeSeq (1,1) (S.fromList [(1,2), (1,3)])
 >>> inSnake (1,1) snake_seq
 True
 >>> inSnake (1,2) snake_seq
@@ -92,7 +93,27 @@ nextHead
 
 -- | Calculates a new random apple, avoiding creating the apple in the same place, or in the snake body
 newApple :: BoardInfo -> GameState -> (Point, StdGen)
-newApple = undefined
+newApple
+  boardInfo
+  GameState{ snakeSeq = SnakeSeq{snakeHead = sHead, snakeBody = sBody}
+           , applePosition = aPos
+           , randomGen = gen
+           }
+  = head $ dropWhile (\(pt, _) -> pt `elem` occupied) (candidates gen)
+  where
+    occupied = aPos : sHead : F.toList sBody
+    candidates g = let (pt, g1) = makeRandomPoint boardInfo g
+                   in (pt, g1) : candidates g1
+
+{- |
+>>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2)])
+>>> let apple_pos = (2,2)
+>>> let board_info = BoardInfo 2 2
+>>> let game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
+>>> fst $ newApple board_info game_state1
+(2,1)
+-}
+
 
 {- We can't test this function because it depends on makeRandomPoint -}
 
