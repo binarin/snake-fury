@@ -1,7 +1,7 @@
 {-|
 This module defines the logic of the game and the communication with the `Board.RenderState`
 -}
-module GameState where 
+module GameState where
 
 -- These are all the import. Feel free to use more if needed.
 import RenderState (BoardInfo (..), Point, DeltaBoard)
@@ -15,12 +15,12 @@ import Data.Maybe (isJust)
 data Movement = North | South | East | West deriving (Show, Eq)
 
 -- | The snakeSeq is a non-empty sequence. It is important to use precise types in Haskell
---   In first sight we'd define the snake as a sequence, but If you think carefully, an empty 
+--   In first sight we'd define the snake as a sequence, but If you think carefully, an empty
 --   sequence can't represent a valid Snake, therefore we must use a non empty one.
 --   You should investigate about Seq type in haskell and we it is a good option for our porpouse.
 data SnakeSeq = SnakeSeq {snakeHead :: Point, snakeBody :: Seq Point} deriving (Show, Eq)
 
--- | The GameState represents all important bits in the game. The Snake, The apple, the current direction of movement and 
+-- | The GameState represents all important bits in the game. The Snake, The apple, the current direction of movement and
 --   a random seed to calculate the next random apple.
 data GameState = GameState
   { snakeSeq :: SnakeSeq
@@ -41,7 +41,7 @@ opositeMovement = undefined
 
 
 -- | Purely creates a random point within the board limits
---   You should take a look to System.Random documentation. 
+--   You should take a look to System.Random documentation.
 --   Also, in the import list you have all relevant functions.
 makeRandomPoint :: BoardInfo -> StdGen -> (Point, StdGen)
 makeRandomPoint = undefined
@@ -56,7 +56,7 @@ inSnake :: Point -> SnakeSeq  -> Bool
 inSnake = undefined
 
 {-
-This is a test for inSnake. It should return 
+This is a test for inSnake. It should return
 True
 True
 False
@@ -78,7 +78,7 @@ True
 True
 -}
 -- >>> snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
--- >>> apple_pos = (2,2) 
+-- >>> apple_pos = (2,2)
 -- >>> board_info = BoardInfo 4 4
 -- >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
 -- >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
@@ -110,7 +110,7 @@ newApple = undefined
 --        - - - -    =>    - - - -
 --        - 0 $ X          - 0 0 $
 -- We need to send the following delta: [((2,2), Apple), ((4,3), Snake), ((4,4), SnakeHead)]
--- 
+--
 
 move :: BoardInfo -> GameState -> (Board.RenderMessage , GameState)
 move = undefined
@@ -124,7 +124,7 @@ RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]
 -}
 
 -- >>> snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
--- >>> apple_pos = (2,1) 
+-- >>> apple_pos = (2,1)
 -- >>> board_info = BoardInfo 4 4
 -- >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
 -- >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
