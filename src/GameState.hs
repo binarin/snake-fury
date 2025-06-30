@@ -47,11 +47,6 @@ makeRandomPoint BoardInfo{height = h, width = w} g = ((x, y), g2)
     (x, g1) = randomR (1, w) g
     (y, g2) = randomR (1, h) g1
 
-
-{-
-We can't test makeRandomPoint, because different implementation may lead to different valid result.
--}
-
 -- | Check if a point is in the snake
 inSnake :: Point -> SnakeSeq  -> Bool
 inSnake pt SnakeSeq{snakeHead = hd, snakeBody = sq} = hd == pt || isJust (S.elemIndexL pt sq)
@@ -67,33 +62,32 @@ False
 
 -}
 
-{-
-This is a test for inSnake. It should return
-True
-True
-False
--}
-
 -- | Calculates de new head of the snake. Considering it is moving in the current direction
 --   Take into acount the edges of the board
 nextHead :: BoardInfo -> GameState -> Point
-nextHead = undefined
+nextHead
+  BoardInfo{height = h, width = w}
+  GameState{movement = dir, snakeSeq = SnakeSeq{snakeHead = (y,x)}}
+  = go dir
+  where
+    go North = (if y == 1 then h else y - 1, x)
+    go South = (if y == h then 1 else y + 1, x)
+    go West  = (y, if x == 1 then w else x - 1)
+    go East  = (y, if x == w then 1 else x + 1)
 
-{-
-This is a test for nextHead. It should return
-True
-True
-True
--}
--- >>> snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
--- >>> apple_pos = (2,2)
--- >>> board_info = BoardInfo 4 4
--- >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
--- >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
--- >>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
--- >>> nextHead board_info game_state1 == (1,4)
--- >>> nextHead board_info game_state2 == (2,1)
--- >>> nextHead board_info game_state3 == (4,1)
+-- |
+-- >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
+-- >>> let apple_pos = (2,2)
+-- >>> let board_info = BoardInfo 4 4
+-- >>> let game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
+-- >>> let game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
+-- >>> let game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
+-- >>> nextHead board_info game_state1
+-- (1,4)
+-- >>> nextHead board_info game_state2
+-- (2,1)
+-- >>> nextHead board_info game_state3
+-- (4,1)
 
 
 -- | Calculates a new random apple, avoiding creating the apple in the same place, or in the snake body
