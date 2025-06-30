@@ -3,3 +3,4 @@
 profile/
 dist-newstyle
 mergeCascade.sh
+/.direnv/
