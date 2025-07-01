@@ -6,7 +6,7 @@ module GameState where
 -- These are all the import. Feel free to use more if needed.
 import RenderState (BoardInfo (..), Point, DeltaBoard)
 import qualified RenderState as Board
-import Data.Sequence ( Seq(..) )
+import Data.Sequence ( Seq(..), ViewR ((:>)) )
 import qualified Data.Sequence as S
 import System.Random ( uniformR, RandomGen(split), StdGen, Random (randomR))
 import Data.Maybe (isJust)
@@ -114,10 +114,6 @@ newApple
 (2,1)
 -}
 
-
-{- We can't test this function because it depends on makeRandomPoint -}
-
-
 -- | Moves the snake based on the current direction. It sends the adequate RenderMessage
 -- Notice that a delta board must include all modified cells in the movement.
 -- For example, if we move between this two steps
@@ -136,22 +132,56 @@ newApple
 --
 
 move :: BoardInfo -> GameState -> (Board.RenderMessage , GameState)
-move = undefined
+move
+  bi@BoardInfo{}
+  gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = oldBody}
+              ,applePosition = applePos
+              }
+  = (if appleEaten
+     then Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtApple])
+     else Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtCleanTail])
+    , gs { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = newBody}
+         , applePosition = applePos'
+         , randomGen = gen'
+         }
+    )
 
-{- This is a test for move. It should return
+  where
+    newHead = nextHead bi gs
+    newLongBody = oldHead :<| oldBody
+    newTrimmedBody :> tailPos = S.viewr newLongBody
+    newBody = if appleEaten then newLongBody else newTrimmedBody
+    appleEaten = applePos == newHead
 
+    (applePos', gen') = if appleEaten then newApple bi gs else (applePos, randomGen gs)
+
+    evtNewHead = (newHead, Board.SnakeHead)
+    evtsOldHead = if oldHead == tailPos then [] else [(oldHead, Board.Snake)]
+    evtApple = (applePos', Board.Apple)
+    evtCleanTail = (tailPos, Board.Empty)
+
+
+{-|
+>>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
+>>> let apple_pos = (2,1)
+>>> let board_info = BoardInfo 4 4
+
+>>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
+>>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
+>>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
+>>> fst $ move board_info game_state1
 RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]
-RenderBoard [((2,1),SnakeHead),((1,1),Snake),((3,1),Apple)] ** your Apple might be different from mine
+
+>>> fst $ move board_info game_state2
+RenderBoard [((2,1),SnakeHead),((1,1),Snake),((2,4),Apple)]
+
+>>> fst $ move board_info game_state3
 RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]
 
--}
+>>> let short_snake_seq = SnakeSeq (1,1) Data.Sequence.Empty
+>>> let game_state4 = GameState short_snake_seq apple_pos West (System.Random.mkStdGen 1)
+>>> let (events4, game_state4') = move board_info game_state4
+>>> events4
+RenderBoard [((1,4),SnakeHead),((1,1),Empty)]
 
--- >>> snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
--- >>> apple_pos = (2,1)
--- >>> board_info = BoardInfo 4 4
--- >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
--- >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
--- >>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
--- >>> fst $ move board_info game_state1
--- >>> fst $ move board_info game_state2
--- >>> fst $ move board_info game_state3
+-}
