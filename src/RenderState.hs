@@ -76,22 +76,19 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 
 -- | Given tye current render state, and a message -> update the render state
 updateRenderState :: RenderState -> RenderMessage -> RenderState
-updateRenderState = undefined
+updateRenderState rs GameOver = rs { gameOver = True }
+updateRenderState rs (RenderBoard updates) = rs { board = board rs // updates }
 
-{-
-This is a test for updateRenderState
-
-message1 should return:
+{-|
+>>> initial_board =  buildInitialBoard (BoardInfo 2 2) (1,1) (2,2)
+>>> message1 = RenderBoard [((1,2), SnakeHead), ((2,1), Apple), ((1,1), Empty)]
+>>> updateRenderState initial_board message1
 RenderState {board = array ((1,1),(2,2)) [((1,1),Empty),((1,2),SnakeHead),((2,1),Apple),((2,2),Apple)], gameOver = False}
 
-message2 should return:
+>>> message2 = GameOver
+>>> updateRenderState initial_board message2
 RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1),Empty),((2,2),Apple)], gameOver = True}
 -}
--- >>> initial_board =  buildInitialBoard (BoardInfo 2 2) (1,1) (2,2)
--- >>> message1 = RenderBoard [((1,2), SnakeHead), ((2,1), Apple), ((1,1), Empty)]
--- >>> message2 = GameOver
--- >>> updateRenderState initial_board message1
--- >>> updateRenderState initial_board message2
 
 
 -- | Provisional Pretty printer
