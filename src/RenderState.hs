@@ -23,7 +23,7 @@ Which would look like this:
 module RenderState where
 
 -- This are all imports you need. Feel free to import more things.
-import Data.Array ( (//), listArray, Array, elems )
+import Data.Array ( (//), listArray, Array, (!) )
 import Data.Foldable ( foldl' )
 
 -- A point is just a tuple of integers.
@@ -100,22 +100,25 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 --     Apple -> "X "
 --   In other to avoid shrinking, I'd recommend to use some charachter followed by an space.
 ppCell :: CellType -> String
-ppCell = undefined
-
+ppCell Empty = "- "
+ppCell Snake = "0 "
+ppCell SnakeHead = "$ "
+ppCell Apple = "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
 render :: BoardInfo -> RenderState -> String
-render = undefined
+render
+  BoardInfo{width = w, height = h}
+  RenderState{board = brd}
+  = mconcat [ renderLine y | y <- [1..h] ]
+  where
+    renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] ++ "\n"
 
-{-
-This is a test for render. It should return:
+{- |
+>>> let brd = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
+>>> let board_info = BoardInfo 3 4
+>>> let render_state = RenderState brd False
+>>> render board_info render_state
 "- - - - \n- 0 $ - \n- - - X \n"
-
-Notice, that this depends on what you've chosen for ppCell
 -}
--- >>> board = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
--- >>> board_info = BoardInfo 3 4
--- >>> render_state = RenderState board  False
--- >>> render board_info render_state
--- "- - - - \n- 0 $ - \n- - - X \n"
