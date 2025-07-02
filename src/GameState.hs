@@ -6,7 +6,7 @@ module GameState where
 -- These are all the import. Feel free to use more if needed.
 import RenderState (BoardInfo (..), Point, DeltaBoard)
 import qualified RenderState as Board
-import Data.Sequence ( Seq(..), ViewR ((:>)) )
+import Data.Sequence ( Seq(..) )
 import qualified Data.Sequence as S
 import System.Random ( StdGen, Random (randomR))
 import Data.Maybe (isJust)
@@ -134,32 +134,19 @@ newApple
 move :: BoardInfo -> GameState -> ([Board.RenderMessage] , GameState)
 move
   bi@BoardInfo{}
-  gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = oldBody}
-              ,applePosition = applePos
-              }
+  gs@GameState{applePosition = applePos}
   = (if appleEaten
-     then [Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtApple]), Board.IncreaseScore]
-     else [Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtCleanTail])]
-    , gs' { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = newBody}
-          , applePosition = applePos'
-          }
+     then [Board.RenderBoard ((applePos', Board.Apple):events), Board.IncreaseScore]
+     else [Board.RenderBoard events]
+    , gs2 {applePosition = applePos'}
     )
 
   where
     newHead = nextHead bi gs
-    newLongBody = oldHead :<| oldBody
-    (newTrimmedBody, tailPos) = case S.viewr newLongBody of
-      b :> t -> (b, t)
-      S.EmptyR -> error "Can't happen"
-    newBody = if appleEaten then newLongBody else newTrimmedBody
     appleEaten = applePos == newHead
+    (applePos', gs1) = if appleEaten then newApple bi gs else (applePos, gs)
+    (events, gs2) = if appleEaten then extendSnake newHead bi gs else displaceSnake newHead bi gs1
 
-    (applePos', gs') = if appleEaten then newApple bi gs else (applePos, gs)
-
-    evtNewHead = (newHead, Board.SnakeHead)
-    evtsOldHead = if oldHead == tailPos then [] else [(oldHead, Board.Snake)]
-    evtApple = (applePos', Board.Apple)
-    evtCleanTail = (tailPos, Board.Empty)
 
 extendSnake :: Point -> BoardInfo -> GameState -> (RenderState.DeltaBoard, GameState)
 extendSnake newHead _ gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = sb}}
@@ -188,7 +175,7 @@ displaceSnake newHead _ gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, sn
 [RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> fst $ move board_info game_state2
-[RenderBoard [((2,1),SnakeHead),((1,1),Snake),((2,4),Apple)],IncreaseScore]
+[RenderBoard [((2,4),Apple),((2,1),SnakeHead),((1,1),Snake)],IncreaseScore]
 
 >>> fst $ move board_info game_state3
 [RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]]
