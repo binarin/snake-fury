@@ -24,6 +24,7 @@ module RenderState where
 
 -- This are all imports you need. Feel free to import more things.
 import Data.Array ( (//), listArray, Array, (!) )
+import Data.ByteString.Builder
 
 -- A point is just a tuple of integers.
 type Point = (Int, Int)
@@ -106,26 +107,29 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 --     SnakeHead -> "$ "
 --     Apple -> "X "
 --   In other to avoid shrinking, I'd recommend to use some charachter followed by an space.
-ppCell :: CellType -> String
-ppCell Empty = "- "
-ppCell Snake = "0 "
-ppCell SnakeHead = "$ "
-ppCell Apple = "X "
+ppCell :: CellType -> Builder
+ppCell Empty = stringUtf8 "- "
+ppCell Snake = stringUtf8 "0 "
+ppCell SnakeHead = stringUtf8 "$ "
+ppCell Apple = stringUtf8 "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
-render :: BoardInfo -> RenderState -> String
+render :: BoardInfo -> RenderState -> Builder
 render
   BoardInfo{width = w, height = h}
-  RenderState{board = brd}
-  = mconcat [ renderLine y | y <- [1..h] ]
+  RenderState{board = brd, score = sc}
+  = renderScore <> mconcat [ renderLine y | y <- [1..h] ]
   where
-    renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] ++ "\n"
+    renderLine :: Int -> Builder
+    renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
+
+    renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
 
 {- |
 >>> let brd = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
 >>> let board_info = BoardInfo 3 4
 >>> let render_state = RenderState brd False 0
 >>> render board_info render_state
-"- - - - \n- 0 $ - \n- - - X \n"
+"*********\n0\n*********\n- - - - \n- 0 $ - \n- - - X \n"
 -}

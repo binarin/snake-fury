@@ -1,4 +1,4 @@
-test:
+test: build
     cabal repl --with-compiler=doctest
 
 build:
