@@ -4,7 +4,7 @@ This module defines the logic of the game and the communication with the `Board.
 module GameState where
 
 -- These are all the import. Feel free to use more if needed.
-import RenderState (BoardInfo (..), Point)
+import RenderState (BoardInfo (..), Point, DeltaBoard)
 import qualified RenderState as Board
 import Data.Sequence ( Seq(..), ViewR ((:>)) )
 import qualified Data.Sequence as S
@@ -161,6 +161,20 @@ move
     evtApple = (applePos', Board.Apple)
     evtCleanTail = (tailPos, Board.Empty)
 
+extendSnake :: Point -> BoardInfo -> GameState -> (RenderState.DeltaBoard, GameState)
+extendSnake newHead _ gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = sb}}
+  = ([(newHead, Board.SnakeHead), (oldHead, Board.Snake)],
+     gs{snakeSeq = ss})
+  where
+    ss = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sb}
+
+displaceSnake :: Point -> BoardInfo -> GameState -> (RenderState.DeltaBoard, GameState)
+displaceSnake newHead _ gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = S.Empty}}
+  = ([(newHead, Board.SnakeHead), (oldHead, Board.Empty)],
+     gs{snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = S.Empty}})
+displaceSnake newHead _ gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = sbWithoutTail :|> oldTail}}
+  = ([(newHead, Board.SnakeHead), (oldHead, Board.Snake), (oldTail, Board.Empty)]
+    ,gs{snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sbWithoutTail}})
 
 {-|
 >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
@@ -186,3 +200,4 @@ move
 [RenderBoard [((1,4),SnakeHead),((1,1),Empty)]]
 
 -}
+
