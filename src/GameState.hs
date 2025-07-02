@@ -42,10 +42,10 @@ opositeMovement West = East
 -- | Purely creates a random point within the board limits
 --   You should take a look to System.Random documentation.
 --   Also, in the import list you have all relevant functions.
-makeRandomPoint :: BoardInfo -> StdGen -> (Point, StdGen)
-makeRandomPoint BoardInfo{height = h, width = w} g = ((x, y), g2)
+makeRandomPoint :: BoardInfo -> GameState -> (Point, GameState)
+makeRandomPoint BoardInfo{height = h, width = w} gs@GameState{randomGen = gen} = ((x, y), gs {randomGen = g2})
   where
-    (x, g1) = randomR (1, w) g
+    (x, g1) = randomR (1, w) gen
     (y, g2) = randomR (1, h) g1
 
 -- | Check if a point is in the snake
@@ -92,19 +92,18 @@ nextHead
 
 
 -- | Calculates a new random apple, avoiding creating the apple in the same place, or in the snake body
-newApple :: BoardInfo -> GameState -> (Point, StdGen)
+newApple :: BoardInfo -> GameState -> (Point, GameState)
 newApple
   boardInfo
-  GameState{ snakeSeq = SnakeSeq{snakeHead = sHead, snakeBody = sBody}
-           , applePosition = aPos
-           , randomGen = gen
-           }
-  = go gen
+  gs@GameState{ snakeSeq = SnakeSeq{snakeHead = sHead, snakeBody = sBody}
+              , applePosition = aPos
+              }
+  = go gs
   where
     occupied = aPos : sHead : F.toList sBody
-    go g = case makeRandomPoint boardInfo g of
-      (pt, g1) | pt `notElem` occupied -> (pt, g1)
-      (_, g1) -> go g1
+    go gsSoFar = case makeRandomPoint boardInfo gsSoFar of
+      (pt, gs') | pt `notElem` occupied -> (pt, gs')
+      (_, gs') -> go gs'
 
 {- |
 >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2)])
@@ -141,10 +140,9 @@ move
   = (if appleEaten
      then [Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtApple]), Board.IncreaseScore]
      else [Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtCleanTail])]
-    , gs { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = newBody}
-         , applePosition = applePos'
-         , randomGen = gen'
-         }
+    , gs' { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = newBody}
+          , applePosition = applePos'
+          }
     )
 
   where
@@ -156,7 +154,7 @@ move
     newBody = if appleEaten then newLongBody else newTrimmedBody
     appleEaten = applePos == newHead
 
-    (applePos', gen') = if appleEaten then newApple bi gs else (applePos, randomGen gs)
+    (applePos', gs') = if appleEaten then newApple bi gs else (applePos, gs)
 
     evtNewHead = (newHead, Board.SnakeHead)
     evtsOldHead = if oldHead == tailPos then [] else [(oldHead, Board.Snake)]
