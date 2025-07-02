@@ -99,11 +99,12 @@ newApple
            , applePosition = aPos
            , randomGen = gen
            }
-  = head $ dropWhile (\(pt, _) -> pt `elem` occupied) (candidates gen)
+  = go gen
   where
     occupied = aPos : sHead : F.toList sBody
-    candidates g = let (pt, g1) = makeRandomPoint boardInfo g
-                   in (pt, g1) : candidates g1
+    go g = case makeRandomPoint boardInfo g of
+      (pt, g1) | pt `notElem` occupied -> (pt, g1)
+      (_, g1) -> go g1
 
 {- |
 >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2)])
@@ -149,7 +150,9 @@ move
   where
     newHead = nextHead bi gs
     newLongBody = oldHead :<| oldBody
-    newTrimmedBody :> tailPos = S.viewr newLongBody
+    (newTrimmedBody, tailPos) = case S.viewr newLongBody of
+      b :> t -> (b, t)
+      S.EmptyR -> error "Can't happen"
     newBody = if appleEaten then newLongBody else newTrimmedBody
     appleEaten = applePos == newHead
 

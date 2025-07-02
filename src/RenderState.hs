@@ -24,7 +24,6 @@ module RenderState where
 
 -- This are all imports you need. Feel free to import more things.
 import Data.Array ( (//), listArray, Array, (!) )
-import Data.Foldable ( foldl' )
 
 -- A point is just a tuple of integers.
 type Point = (Int, Int)
@@ -51,7 +50,7 @@ data RenderState   = RenderState {board :: Board, gameOver :: Bool} deriving Sho
 -- | Given The board info, this function should return a board with all Empty cells
 emptyGrid :: BoardInfo -> Board
 emptyGrid BoardInfo{height = h, width = w} =
-  listArray ((1, 1), (h, w)) [ Empty | y <- [1..h], x <- [1..w] ]
+  listArray ((1, 1), (h, w)) [ Empty | _ <- [1..h], _ <- [1..w] ]
 
 {-|
 >>> emptyGrid (BoardInfo 2 2)
