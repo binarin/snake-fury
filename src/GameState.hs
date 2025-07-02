@@ -132,15 +132,15 @@ newApple
 -- We need to send the following delta: [((2,2), Apple), ((4,3), Snake), ((4,4), SnakeHead)]
 --
 
-move :: BoardInfo -> GameState -> (Board.RenderMessage , GameState)
+move :: BoardInfo -> GameState -> ([Board.RenderMessage] , GameState)
 move
   bi@BoardInfo{}
   gs@GameState{snakeSeq = SnakeSeq{snakeHead = oldHead, snakeBody = oldBody}
               ,applePosition = applePos
               }
   = (if appleEaten
-     then Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtApple])
-     else Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtCleanTail])
+     then [Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtApple]), Board.IncreaseScore]
+     else [Board.RenderBoard ([evtNewHead] ++ evtsOldHead ++ [evtCleanTail])]
     , gs { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = newBody}
          , applePosition = applePos'
          , randomGen = gen'
@@ -173,18 +173,18 @@ move
 >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
 >>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
 >>> fst $ move board_info game_state1
-RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]
+[RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> fst $ move board_info game_state2
-RenderBoard [((2,1),SnakeHead),((1,1),Snake),((2,4),Apple)]
+[RenderBoard [((2,1),SnakeHead),((1,1),Snake),((2,4),Apple)],IncreaseScore]
 
 >>> fst $ move board_info game_state3
-RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]
+[RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> let short_snake_seq = SnakeSeq (1,1) Data.Sequence.Empty
 >>> let game_state4 = GameState short_snake_seq apple_pos West (System.Random.mkStdGen 1)
 >>> let (events4, game_state4') = move board_info game_state4
 >>> events4
-RenderBoard [((1,4),SnakeHead),((1,1),Empty)]
+[RenderBoard [((1,4),SnakeHead),((1,1),Empty)]]
 
 -}

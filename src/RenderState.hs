@@ -42,7 +42,11 @@ type DeltaBoard = [(Point, CellType)]
 -- | The render message represent all message the GameState can send to the RenderState
 --   Right now Possible messages are a RenderBoard with a payload indicating which cells change
 --   or a GameOver message.
-data RenderMessage = RenderBoard DeltaBoard | GameOver deriving Show
+data RenderMessage
+  = RenderBoard DeltaBoard
+  | GameOver
+  | IncreaseScore
+  deriving Show
 
 -- | The RenderState contains the board and if the game is over or not.
 data RenderState   = RenderState { board :: Board
@@ -80,6 +84,7 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 updateRenderState :: RenderState -> RenderMessage -> RenderState
 updateRenderState rs GameOver = rs { gameOver = True }
 updateRenderState rs (RenderBoard updates) = rs { board = board rs // updates }
+updateRenderState rs@RenderState{score = curScore} IncreaseScore = rs { score = curScore + 1 }
 
 {-|
 >>> initial_board =  buildInitialBoard (BoardInfo 2 2) (1,1) (2,2)
