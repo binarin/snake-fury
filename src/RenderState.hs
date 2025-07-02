@@ -45,7 +45,9 @@ type DeltaBoard = [(Point, CellType)]
 data RenderMessage = RenderBoard DeltaBoard | GameOver deriving Show
 
 -- | The RenderState contains the board and if the game is over or not.
-data RenderState   = RenderState {board :: Board, gameOver :: Bool} deriving Show
+data RenderState   = RenderState { board :: Board
+                                 , gameOver :: Bool
+                                 , score :: Int } deriving Show
 
 -- | Given The board info, this function should return a board with all Empty cells
 emptyGrid :: BoardInfo -> Board
@@ -65,11 +67,12 @@ buildInitialBoard
   -> RenderState
 buildInitialBoard bi snake apple = RenderState{ board = emptyGrid bi // [ (snake, SnakeHead), (apple, Apple) ]
                                               , gameOver = False
+                                              , score = 0
                                               }
 
 {-|
 >>> buildInitialBoard (BoardInfo 2 2) (1,1) (2,2)
-RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1),Empty),((2,2),Apple)], gameOver = False}
+RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1),Empty),((2,2),Apple)], gameOver = False, score = 0}
 -}
 
 
@@ -82,11 +85,11 @@ updateRenderState rs (RenderBoard updates) = rs { board = board rs // updates }
 >>> initial_board =  buildInitialBoard (BoardInfo 2 2) (1,1) (2,2)
 >>> message1 = RenderBoard [((1,2), SnakeHead), ((2,1), Apple), ((1,1), Empty)]
 >>> updateRenderState initial_board message1
-RenderState {board = array ((1,1),(2,2)) [((1,1),Empty),((1,2),SnakeHead),((2,1),Apple),((2,2),Apple)], gameOver = False}
+RenderState {board = array ((1,1),(2,2)) [((1,1),Empty),((1,2),SnakeHead),((2,1),Apple),((2,2),Apple)], gameOver = False, score = 0}
 
 >>> message2 = GameOver
 >>> updateRenderState initial_board message2
-RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1),Empty),((2,2),Apple)], gameOver = True}
+RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1),Empty),((2,2),Apple)], gameOver = True, score = 0}
 -}
 
 
@@ -117,7 +120,7 @@ render
 {- |
 >>> let brd = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
 >>> let board_info = BoardInfo 3 4
->>> let render_state = RenderState brd False
+>>> let render_state = RenderState brd False 0
 >>> render board_info render_state
 "- - - - \n- 0 $ - \n- - - X \n"
 -}
