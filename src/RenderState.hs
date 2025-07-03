@@ -25,6 +25,10 @@ module RenderState where
 -- This are all imports you need. Feel free to import more things.
 import Data.Array ( (//), listArray, Array, (!) )
 import Data.ByteString.Builder
+import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Control.Monad.Trans.State.Strict (State, get, gets, runState, modify)
+import Control.Monad.Trans (lift)
+import Control.Monad (forM_)
 
 -- A point is just a tuple of integers.
 type Point = (Int, Int)
@@ -54,6 +58,8 @@ data RenderState   = RenderState { board :: Board
                                  , gameOver :: Bool
                                  , score :: Int } deriving Show
 
+type RenderStep a = ReaderT BoardInfo (State RenderState) a
+
 -- | Given The board info, this function should return a board with all Empty cells
 emptyGrid :: BoardInfo -> Board
 emptyGrid BoardInfo{height = h, width = w} =
@@ -82,19 +88,23 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 
 
 -- | Given tye current render state, and a message -> update the render state
-updateRenderState :: RenderState -> RenderMessage -> RenderState
-updateRenderState rs GameOver = rs { gameOver = True }
-updateRenderState rs (RenderBoard updates) = rs { board = board rs // updates }
-updateRenderState rs@RenderState{score = curScore} IncreaseScore = rs { score = curScore + 1 }
+updateRenderState :: RenderMessage -> RenderStep ()
+updateRenderState GameOver = lift $ modify (\rs -> rs { gameOver = True })
+updateRenderState (RenderBoard updates) = lift $ modify (\rs -> rs { board = board rs // updates })
+updateRenderState IncreaseScore = do
+  curScore <- lift $ gets score
+  lift $ modify (\rs -> rs { score = curScore + 1 })
+
 
 {-|
->>> initial_board =  buildInitialBoard (BoardInfo 2 2) (1,1) (2,2)
+>>> let bi = BoardInfo 2 2
+>>> render_state = buildInitialBoard bi (1,1) (2,2)
 >>> message1 = RenderBoard [((1,2), SnakeHead), ((2,1), Apple), ((1,1), Empty)]
->>> updateRenderState initial_board message1
+>>> snd $ runState (runReaderT (updateRenderState message1) bi) render_state
 RenderState {board = array ((1,1),(2,2)) [((1,1),Empty),((1,2),SnakeHead),((2,1),Apple),((2,2),Apple)], gameOver = False, score = 0}
 
 >>> message2 = GameOver
->>> updateRenderState initial_board message2
+>>> snd $ runState (runReaderT (updateRenderState message2) bi) render_state
 RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1),Empty),((2,2),Apple)], gameOver = True, score = 0}
 -}
 
@@ -115,21 +125,24 @@ ppCell Apple = stringUtf8 "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
-render :: BoardInfo -> RenderState -> Builder
-render
-  BoardInfo{width = w, height = h}
-  RenderState{board = brd, score = sc}
-  = renderScore <> mconcat [ renderLine y | y <- [1..h] ]
-  where
-    renderLine :: Int -> Builder
-    renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
+renderStep ::  [RenderMessage] -> RenderStep Builder
+renderStep messages = do
+  forM_ messages updateRenderState
+  (w, h) <- (\bi -> (width bi, height bi)) <$> ask
+  (brd, sc) <- (\rs -> (board rs, score rs)) <$> lift get
+  let renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
+  let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
+  pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
 
-    renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
+render :: [RenderMessage] -> BoardInfo -> RenderState -> (Builder, RenderState)
+render ms bi rs = runState (runReaderT (renderStep ms) bi) rs
+
 
 {- |
 >>> let brd = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
 >>> let board_info = BoardInfo 3 4
 >>> let render_state = RenderState brd False 0
->>> render board_info render_state
-"*********\n0\n*********\n- - - - \n- 0 $ - \n- - - X \n"
+>>> let board_updates = [((3, 3), Apple), ((3, 4), Empty)]
+>>> fst $ render [RenderBoard board_updates, IncreaseScore] board_info render_state
+"*********\n1\n*********\n- - - - \n- 0 $ - \n- - X - \n"
 -}

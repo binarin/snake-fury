@@ -15,7 +15,7 @@ import EventQueue (
  )
 import GameState (GameState (movement), move, opositeMovement)
 import Initialization (gameInitialization)
-import RenderState (BoardInfo, RenderState (gameOver, score), render, updateRenderState)
+import RenderState (BoardInfo, RenderState (gameOver, score), render)
 import System.Environment (getArgs)
 import System.IO (BufferMode (NoBuffering), hSetBinaryMode, hSetBuffering, hSetEcho, stdin, stdout)
 import Control.Monad (unless)
@@ -39,10 +39,10 @@ gameloop binf gstate rstate queue = do
             if movement gstate == opositeMovement m
               then move binf gstate
               else move binf $ gstate{movement = m}
-  let rstate' = foldl updateRenderState rstate delta
+  let (rendered, rstate') = render delta binf rstate
       isGameOver = gameOver rstate'
   putStr "\ESC[2J" --This cleans the console screen
-  hPutBuilder stdout (render binf rstate')
+  hPutBuilder stdout rendered
   unless isGameOver $ gameloop binf gstate' rstate' queue
 
 -- | main.
