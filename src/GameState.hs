@@ -14,6 +14,8 @@ import System.Random ( StdGen, Random (randomR))
 import Data.Maybe (isJust)
 import qualified Data.Foldable as F
 import Control.Monad.Trans.State.Strict (State, get, modify, gets, runState)
+import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+import Control.Monad.Trans.Class ( MonadTrans(lift) )
 
 -- The movement is one of this.
 data Movement = North | South | East | West deriving (Show, Eq)
@@ -34,7 +36,7 @@ data GameState = GameState
   }
   deriving (Show, Eq)
 
-type GameStep a = State GameState a
+type GameStep a = ReaderT BoardInfo (State GameState) a
 
 -- | This function should calculate the opposite movement.
 opositeMovement :: Movement -> Movement
@@ -50,8 +52,8 @@ opositeMovement West = East
 
 randomCoord :: Int -> GameStep Int
 randomCoord maxN = do
-  (n, gen) <- randomR (1, maxN) <$> gets randomGen
-  modify (\s -> s { randomGen = gen })
+  (n, gen) <- randomR (1, maxN) <$> lift (gets randomGen)
+  lift $ modify (\s -> s { randomGen = gen })
   pure n
 
 makeRandomPoint :: BoardInfo -> GameStep Point
@@ -103,14 +105,14 @@ nextHead
 
 
 -- | Calculates a new random apple, avoiding creating the apple in the same place, or in the snake body
-newApple :: BoardInfo -> GameStep Point
-newApple boardInfo = do
-  SnakeSeq{snakeHead = sHead, snakeBody = sBody} <- gets snakeSeq
-  aPos <- gets applePosition
+newApple :: GameStep Point
+newApple = do
+  SnakeSeq{snakeHead = sHead, snakeBody = sBody} <- lift $ gets snakeSeq
+  aPos <- lift $ gets applePosition
   let occupied = aPos : sHead : F.toList sBody
-  pt <- makeRandomPoint boardInfo
+  pt <- ask >>= makeRandomPoint
   if pt `elem` occupied
-    then newApple boardInfo
+    then newApple
     else pure pt
 
 {- |
@@ -118,7 +120,7 @@ newApple boardInfo = do
 >>> let apple_pos = (2,2)
 >>> let board_info = BoardInfo 2 2
 >>> let game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
->>> fst $ runState (newApple board_info) game_state1
+>>> fst $ runState (runReaderT newApple board_info) game_state1
 (2,1)
 -}
 
@@ -141,27 +143,27 @@ newApple boardInfo = do
 
 -- move :: BoardInfo -> GameState -> ([Board.RenderMessage] , GameState)
 
-step :: BoardInfo -> GameStep [Board.RenderMessage]
-step bi = do
-  newHead <- nextHead bi <$> get
-  appleEaten <- (== newHead) <$> gets applePosition
+step :: GameStep [Board.RenderMessage]
+step = do
+  newHead <- nextHead <$> ask <*> lift get
+  appleEaten <- (== newHead) <$> lift (gets applePosition)
   if appleEaten
     then do
-      ap <- newApple bi
-      modify (\s -> s { applePosition = ap })
-      events <- ((ap, Board.Apple):) <$> extendSnake newHead bi
+      ap <- newApple
+      lift $ modify (\s -> s { applePosition = ap })
+      events <- ((ap, Board.Apple):) <$> extendSnake newHead
       pure [Board.IncreaseScore, Board.RenderBoard events]
     else do
-      (: []) . Board.RenderBoard <$> displaceSnake newHead bi
+      (: []) . Board.RenderBoard <$> displaceSnake newHead
 
-extendSnake :: Point -> BoardInfo -> GameStep RenderState.DeltaBoard
-extendSnake newHead _ = do
-  SnakeSeq{snakeHead = oldHead, snakeBody = sb} <- gets snakeSeq
-  modify (\s -> s { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sb} })
+extendSnake :: Point -> GameStep RenderState.DeltaBoard
+extendSnake newHead = do
+  SnakeSeq{snakeHead = oldHead, snakeBody = sb} <- lift $ gets snakeSeq
+  lift $ modify (\s -> s { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sb} })
   pure [(newHead, Board.SnakeHead), (oldHead, Board.Snake)]
 
-displaceSnake :: Point -> BoardInfo -> GameStep RenderState.DeltaBoard
-displaceSnake newHead _ = gets snakeSeq >>= \case
+displaceSnake :: Point -> GameStep RenderState.DeltaBoard
+displaceSnake newHead = lift $ gets snakeSeq >>= \case
   SnakeSeq{snakeHead = oldHead, snakeBody = S.Empty} -> do
     modify (\s -> s { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = S.Empty} })
     pure [(newHead, Board.SnakeHead), (oldHead, Board.Empty)]
@@ -195,4 +197,4 @@ displaceSnake newHead _ = gets snakeSeq >>= \case
 -}
 
 move :: BoardInfo -> GameState -> ([Board.RenderMessage], GameState)
-move bi = runState (step bi)
+move bi = runState (runReaderT step bi)
