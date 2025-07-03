@@ -118,7 +118,7 @@ newApple boardInfo = do
 >>> let apple_pos = (2,2)
 >>> let board_info = BoardInfo 2 2
 >>> let game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
->>> fst $ newApple board_info game_state1
+>>> fst $ runState (newApple board_info) game_state1
 (2,1)
 -}
 
@@ -181,7 +181,7 @@ displaceSnake newHead _ = gets snakeSeq >>= \case
 [RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> fst $ move board_info game_state2
-[RenderBoard [((2,4),Apple),((2,1),SnakeHead),((1,1),Snake)],IncreaseScore]
+[IncreaseScore,RenderBoard [((2,4),Apple),((2,1),SnakeHead),((1,1),Snake)]]
 
 >>> fst $ move board_info game_state3
 [RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]]
