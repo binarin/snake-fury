@@ -175,6 +175,7 @@ displaceSnake newHead = lift $ gets snakeSeq >>= \case
     pure [(newHead, Board.SnakeHead), (oldHead, Board.Snake), (oldTail, Board.Empty)]
 
 {-|
+>>> let evt = Tick
 >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
 >>> let apple_pos = (2,1)
 >>> let board_info = BoardInfo 4 4
@@ -182,22 +183,30 @@ displaceSnake newHead = lift $ gets snakeSeq >>= \case
 >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
 >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
 >>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
->>> fst $ move board_info game_state1
+>>> fst $ move evt board_info game_state1
 [RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
->>> fst $ move board_info game_state2
+>>> fst $ move evt board_info game_state2
 [IncreaseScore,RenderBoard [((2,4),Apple),((2,1),SnakeHead),((1,1),Snake)]]
 
->>> fst $ move board_info game_state3
+>>> fst $ move evt board_info game_state3
 [RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> let short_snake_seq = SnakeSeq (1,1) Data.Sequence.Empty
 >>> let game_state4 = GameState short_snake_seq apple_pos West (System.Random.mkStdGen 1)
->>> let (events4, game_state4') = move board_info game_state4
+>>> let (events4, game_state4') = move evt board_info game_state4
 >>> events4
 [RenderBoard [((1,4),SnakeHead),((1,1),Empty)]]
 
 -}
 
-move :: BoardInfo -> GameState -> ([Board.RenderMessage], GameState)
-move bi = runState (runReaderT step bi)
+move :: Event -> BoardInfo -> GameState -> ([Board.RenderMessage], GameState)
+move evt bi gs = -- runState (runReaderT step bi)
+  case evt of
+    Tick -> runAll gs
+    UserEvent m ->
+      if movement gs == opositeMovement m
+        then runAll gs
+        else runAll $ gs {movement = m }
+  where
+    runAll = runState (runReaderT step bi)
