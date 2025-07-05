@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE LambdaCase #-}
 
 {- |
 This module handle the external events of the game. That is: the user inputs and the time.
@@ -7,7 +8,6 @@ module EventQueue where
 
 import Control.Concurrent (
   MVar,
-  readMVar,
   swapMVar,
  )
 import Control.Concurrent.BoundedChan (
@@ -16,14 +16,14 @@ import Control.Concurrent.BoundedChan (
   tryWriteChan,
  )
 import GameState (Movement (..))
-import qualified GameState as Snake
 import System.IO (hReady, stdin)
+import Control.Monad (forM_)
 
 -- | The are two kind of events, a `ClockEvent`, representing movement which is not force by the user input, and `UserEvent` which is the opposite.
-data Event = Tick | UserEvent Snake.Movement
+data Event = Tick | UserEvent Movement
 
 -- | the `UserInputQueue` is an asynchronous bounded channel which contains snake movements. This channel is feeded by key strokes
-type UserInputQueue = BoundedChan Snake.Movement
+type UserInputQueue = BoundedChan Movement
 
 -- | The `EventQueue` has a `UserInputQueue` and the global speed of consumption (as a mutable reference) and the initial speed of the game.
 data EventQueue = EventQueue
@@ -38,14 +38,16 @@ data EventQueue = EventQueue
 -- | Given the current score and the initial speed, calculates the new speed.
 --   The speed is increased by 10% every 10 points, up to 50 points.
 calculateSpeed :: Int -> Int -> Int
-calculateSpeed score initialSpeed = undefined
+calculateSpeed score initSpeed = initSpeed + ((level * initSpeed) `div` 10)
+  where
+    level = (score `min` 50) `div` 10
 
 {- | Given the current score and the event queue, updates the new speed and returns it.
    This action is mutable, therefore must be run in the IO mondad
 -}
 setSpeed :: Int -> EventQueue -> IO Int
-setSpeed score event_queue = undefined
-
+setSpeed score event_queue = do
+  swapMVar (currentSpeed event_queue) (calculateSpeed score (initialSpeed event_queue))
 
 -- In StackOverflow we trust.
 -- This function reads the key strokes as a String.
@@ -76,9 +78,25 @@ Check getKey function's comment for a hint
 
 -}
 writeUserInput :: EventQueue -> IO ()
-writeUserInput event_queue = undefined
+writeUserInput event_queue = do
+  input <- parseInput <$> getKey
+  forM_ input $ \dir -> do
+    _ <- tryWriteChan (userInput event_queue) dir
+    pure ()
+  writeUserInput event_queue
+ where
+   parseInput ('\27':'[':'A':rest) = North:parseInput rest
+   parseInput ('\27':'[':'B':rest) = South:parseInput rest
+   parseInput ('\27':'[':'C':rest) = East:parseInput rest
+   parseInput ('\27':'[':'D':rest) = West:parseInput rest
+   parseInput (_:rest) = parseInput rest
+   parseInput [] = []
+
 
 -- | Read the EventQueue and generates an Event to pass to the user logic.
 -- It should pass an UserEvent if the queue is not empty, otherwise a Tick
 readEvent :: EventQueue -> IO Event
-readEvent event_queue = undefined
+readEvent event_queue = do
+  tryReadChan (userInput event_queue) >>= \case
+    Just evt -> pure (UserEvent evt)
+    _ -> pure Tick
