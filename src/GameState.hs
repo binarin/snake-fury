@@ -20,6 +20,9 @@ import Control.Monad.Trans.Class ( MonadTrans(lift) )
 -- The movement is one of this.
 data Movement = North | South | East | West deriving (Show, Eq)
 
+-- | The are two kind of events, a `ClockEvent`, representing movement which is not force by the user input, and `UserEvent` which is the opposite.
+data Event = Tick | UserEvent Movement
+
 -- | The snakeSeq is a non-empty sequence. It is important to use precise types in Haskell
 --   In first sight we'd define the snake as a sequence, but If you think carefully, an empty
 --   sequence can't represent a valid Snake, therefore we must use a non empty one.

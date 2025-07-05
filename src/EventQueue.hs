@@ -15,12 +15,9 @@ import Control.Concurrent.BoundedChan (
   tryReadChan,
   tryWriteChan,
  )
-import GameState (Movement (..))
+import GameState (Movement (..), Event (..))
 import System.IO (hReady, stdin)
 import Control.Monad (forM_)
-
--- | The are two kind of events, a `ClockEvent`, representing movement which is not force by the user input, and `UserEvent` which is the opposite.
-data Event = Tick | UserEvent Movement
 
 -- | the `UserInputQueue` is an asynchronous bounded channel which contains snake movements. This channel is feeded by key strokes
 type UserInputQueue = BoundedChan Movement

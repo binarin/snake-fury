@@ -7,13 +7,12 @@ import Control.Concurrent (
   threadDelay,
  )
 import EventQueue (
-  Event (Tick, UserEvent),
   EventQueue (),
   readEvent,
   writeUserInput,
   setSpeed,
  )
-import GameState (GameState (movement), move, opositeMovement)
+import GameState (GameState (movement), move, opositeMovement, Event(..))
 import Initialization (gameInitialization)
 import RenderState (BoardInfo, RenderState (gameOver, score), render)
 import System.Environment (getArgs)
