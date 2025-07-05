@@ -15,6 +15,7 @@ import Control.Concurrent.BoundedChan (
   tryReadChan,
   tryWriteChan,
  )
+import GameState (Movement (..))
 import qualified GameState as Snake
 import System.IO (hReady, stdin)
 
@@ -37,30 +38,27 @@ data EventQueue = EventQueue
 -- | Given the current score and the initial speed, calculates the new speed.
 --   The speed is increased by 10% every 10 points, up to 50 points.
 calculateSpeed :: Int -> Int -> Int
-calculateSpeed score initialSpeedVal =
-  let level = min score 50 `quot` 10 -- maximun of 5 levels every 10 apples
-      speedFactor = 1 - fromIntegral level / 10.0 -- every level speeds up the time by a 10%
-   in floor @Double $ fromIntegral initialSpeedVal * speedFactor
+calculateSpeed score initialSpeed = undefined
 
 {- | Given the current score and the event queue, updates the new speed and returns it.
    This action is mutable, therefore must be run in the IO mondad
 -}
 setSpeed :: Int -> EventQueue -> IO Int
-setSpeed s (EventQueue _ m_current initial_speed) = do
-  current_speed <- readMVar m_current -- Read the current reference to speed
-  let new_speed = calculateSpeed s initial_speed -- calculate new speed based on the score. This is a pure calculation, hence the let at the begining
-  if new_speed == current_speed
-    then pure current_speed -- If the new speed is equal to the current one, just return it
-    else swapMVar m_current new_speed >> pure new_speed -- if not, swap the content of the reference with the new speed
+setSpeed score event_queue = undefined
 
-{-
- |---------------|
- |- User Inputs -|
- |---------------|
--}
 
 -- In StackOverflow we trust.
-getKey :: IO [Char]
+-- This function reads the key strokes as a String.
+-- The arrow keys correspond to the following strings
+-- "\ESC[A" -> Up Arrow
+-- "\ESC[D" -> Right Arrow
+-- "\ESC[C" -> Left Arrow
+-- "\ESC[B" -> Down Arrow
+-- therefore the following code:
+--     k <- getKey
+--     print $ k == "\ESC[B"
+-- will print True when Down arrow is pressed
+getKey :: IO String
 getKey = reverse <$> getKey' ""
  where
   getKey' chars = do
@@ -73,43 +71,14 @@ getKey = reverse <$> getKey' ""
  meaning that if we push a movement to a filled queue it gets discarded.
  This is intented for the game play, If we press keys faster than the game speed
  they will be enqueued and pushed into the game with delay.
+
+Check getKey function's comment for a hint
+
 -}
 writeUserInput :: EventQueue -> IO ()
-writeUserInput queue@(EventQueue userqueue _ _) = do
-  c <- getKey
-  case parseUserInput c of
-    Just dir -> tryWriteChan userqueue dir >> writeUserInput queue 
-    Nothing  -> writeUserInput queue
+writeUserInput event_queue = undefined
 
-{- | Parse common arrow-like keys
-- \ESC[A/D/C/B are the escape codes for the arrow keys.
-- hjkl are vim-like movements
-- wasd are common in games
--}
-parseUserInput :: String -> Maybe Snake.Movement
-
-parseUserInput "\ESC[A" = Just Snake.North
-parseUserInput "w" = Just Snake.North
-parseUserInput "k" = Just Snake.North
-
-parseUserInput "\ESC[D" = Just Snake.West
-parseUserInput "a" = Just Snake.West
-parseUserInput "h" = Just Snake.West
-
-parseUserInput "\ESC[C" = Just Snake.East
-parseUserInput "d" = Just Snake.East
-parseUserInput "l" = Just Snake.East
-
-parseUserInput "\ESC[B" = Just Snake.South
-parseUserInput "s" = Just Snake.South
-parseUserInput "j" = Just Snake.South
-
-parseUserInput _ = Nothing
-
--- | Read the EventQueue and generates an Event to pass to the user logic
+-- | Read the EventQueue and generates an Event to pass to the user logic.
+-- It should pass an UserEvent if the queue is not empty, otherwise a Tick
 readEvent :: EventQueue -> IO Event
-readEvent (EventQueue userqueue _ _) = do
-  mv <- tryReadChan userqueue
-  case mv of
-    Nothing -> pure Tick
-    Just move -> return $ UserEvent move
+readEvent event_queue = undefined
