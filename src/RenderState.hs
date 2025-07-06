@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 
 {-|
@@ -25,10 +27,11 @@ module RenderState where
 -- This are all imports you need. Feel free to import more things.
 import Data.Array ( (//), listArray, Array, (!) )
 import Data.ByteString.Builder
-import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
-import Control.Monad.Trans.State.Strict (State, get, gets, runState, modify)
-import Control.Monad.Trans (lift)
+-- import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
+-- import Control.Monad.Trans.State.Strict (State, get, gets, runState, modify)
 import Control.Monad (forM_)
+import Control.Monad.State
+import Control.Monad.Reader
 
 -- A point is just a tuple of integers.
 type Point = (Int, Int)
@@ -58,7 +61,10 @@ data RenderState   = RenderState { board :: Board
                                  , gameOver :: Bool
                                  , score :: Int } deriving Show
 
-type RenderStep a = ReaderT BoardInfo (State RenderState) a
+-- type RenderStep a = ReaderT BoardInfo (State RenderState) a
+newtype RenderStep m a = RenderStep
+  { runRenderStep :: ReaderT BoardInfo (StateT RenderState m) a}
+  deriving (Functor, Applicative, Monad, MonadState RenderState, MonadReader BoardInfo)
 
 -- | Given The board info, this function should return a board with all Empty cells
 emptyGrid :: BoardInfo -> Board
@@ -88,12 +94,12 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 
 
 -- | Given tye current render state, and a message -> update the render state
-updateRenderState :: RenderMessage -> RenderStep ()
-updateRenderState GameOver = lift $ modify (\rs -> rs { gameOver = True })
-updateRenderState (RenderBoard updates) = lift $ modify (\rs -> rs { board = board rs // updates })
+updateRenderState :: (MonadReader BoardInfo m, MonadState RenderState m) => RenderMessage -> m ()
+updateRenderState GameOver = modify (\rs -> rs { gameOver = True })
+updateRenderState (RenderBoard updates) = modify (\rs -> rs { board = board rs // updates })
 updateRenderState IncreaseScore = do
-  curScore <- lift $ gets score
-  lift $ modify (\rs -> rs { score = curScore + 1 })
+  curScore <- gets score
+  modify (\rs -> rs { score = curScore + 1 })
 
 
 {-|
@@ -125,11 +131,11 @@ ppCell Apple = stringUtf8 "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
-renderStep ::  [RenderMessage] -> RenderStep Builder
+renderStep ::  (MonadReader BoardInfo m, MonadState RenderState m) => [RenderMessage] -> m Builder
 renderStep messages = do
   forM_ messages updateRenderState
-  (w, h) <- (\bi -> (width bi, height bi)) <$> ask
-  (brd, sc) <- (\rs -> (board rs, score rs)) <$> lift get
+  (w, h) <- asks (\bi -> (width bi, height bi))
+  (brd, sc) <- gets (\rs -> (board rs, score rs))
   let renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
   let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
   pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
