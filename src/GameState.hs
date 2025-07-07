@@ -20,6 +20,10 @@ import Control.Monad.State.Strict (StateT, get, put, modify, gets, runState, Mon
 import Control.Monad.Reader (ReaderT (runReaderT), ask, asks, local, MonadReader)
 import Control.Monad.Trans.Class
 
+-- $setup
+-- >>> import Control.Monad.Identity
+
+
 -- The movement is one of this.
 data Movement = North | South | East | West deriving (Show, Eq)
 
@@ -219,30 +223,31 @@ displaceSnake newHead = gets snakeSeq >>= \case
 >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
 >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
 >>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
->>> fst $ move evt board_info game_state1
+>>> fst $ runIdentity $ move evt board_info game_state1
 [RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
->>> fst $ move evt board_info game_state2
+>>> fst $ runIdentity $ move evt board_info game_state2
 [IncreaseScore,RenderBoard [((2,4),Apple),((2,1),SnakeHead),((1,1),Snake)]]
 
->>> fst $ move evt board_info game_state3
+>>> fst $ runIdentity $ move evt board_info game_state3
 [RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> let short_snake_seq = SnakeSeq (1,1) Data.Sequence.Empty
 >>> let game_state4 = GameState short_snake_seq apple_pos West (System.Random.mkStdGen 1)
->>> let (events4, game_state4') = move evt board_info game_state4
+>>> let (events4, game_state4') = runIdentity $ move evt board_info game_state4
 >>> events4
 [RenderBoard [((1,4),SnakeHead),((1,1),Empty)]]
 
 -}
 
-move :: Event -> BoardInfo -> GameState -> ([Board.RenderMessage], GameState)
-move evt bi gs = -- runState (runReaderT step bi)
-  case evt of
-    Tick -> runAll gs
-    UserEvent m ->
-      if movement gs == opositeMovement m
-        then runAll gs
-        else runAll $ gs {movement = m }
+move :: Monad m => Event -> BoardInfo -> GameState -> m ([Board.RenderMessage], GameState)
+move evt bi gs = do
+  pure result
   where
     runAll = runState (runReaderT step bi)
+    result = case evt of
+      Tick -> runAll gs
+      UserEvent m ->
+        if movement gs == opositeMovement m
+          then runAll gs
+          else runAll $ gs {movement = m }

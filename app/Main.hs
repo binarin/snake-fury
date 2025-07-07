@@ -19,6 +19,7 @@ import System.Environment (getArgs)
 import System.IO (BufferMode (NoBuffering), hSetBinaryMode, hSetBuffering, hSetEcho, stdin, stdout)
 import Control.Monad (unless)
 import Data.ByteString.Builder
+import Control.Monad.Identity
 
 -- The game loop is easy:
 --   - wait some time
@@ -31,7 +32,7 @@ gameloop binf gstate rstate queue = do
   speed <- setSpeed (score rstate) queue
   threadDelay speed
   event <- readEvent queue
-  let (delta, gstate') = move event binf gstate
+  let (delta, gstate') = runIdentity $ move event binf gstate
   let (rendered, rstate') = render delta binf rstate
       isGameOver = gameOver rstate'
   putStr "\ESC[2J" --This cleans the console screen

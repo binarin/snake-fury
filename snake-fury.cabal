@@ -54,5 +54,6 @@ executable snake-fury
       base
     , snake-fury
     , bytestring
+    , mtl
   default-language: Haskell2010
 
