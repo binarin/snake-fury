@@ -17,9 +17,10 @@ import qualified Data.Sequence as S
 import System.Random ( StdGen, Random (randomR))
 import Data.Maybe (isJust)
 import qualified Data.Foldable as F
-import Control.Monad.State.Strict (StateT, get, put, modify, gets, MonadState, runStateT)
-import Control.Monad.Reader (ReaderT (runReaderT), ask, asks, local, MonadReader)
+import Control.Monad.State.Strict (StateT, get, put, modify, gets, MonadState)
+import Control.Monad.Reader (ReaderT (), ask, asks, local, MonadReader)
 import Control.Monad.Trans.Class
+import Control.Monad (when)
 
 -- $setup
 -- >>> import Control.Monad.Identity
@@ -167,6 +168,8 @@ newApple = do
     else pure pt
 
 {- |
+>>> import Control.Monad.Reader
+>>> import Control.Monad.State
 >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2)])
 >>> let apple_pos = (2,2)
 >>> let board_info = BoardInfo 2 2
@@ -223,40 +226,39 @@ displaceSnake newHead = gets (snakeSeq . getGameState) >>= \case
     pure [(newHead, Board.SnakeHead), (oldHead, Board.Snake), (oldTail, Board.Empty)]
 
 {-|
+>>> import Control.Monad.Reader
+>>> import Control.Monad.State
 >>> let evt = Tick
 >>> let snake_seq = SnakeSeq (1,1) (Data.Sequence.fromList [(1,2), (1,3)])
 >>> let apple_pos = (2,1)
 >>> let board_info = BoardInfo 4 4
+>>> let monad_stack ma bi gs = fst . runIdentity $ runReaderT (runStateT ma gs) bi
 
 >>> game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
 >>> game_state2 = GameState snake_seq apple_pos South (System.Random.mkStdGen 1)
 >>> game_state3 = GameState snake_seq apple_pos North (System.Random.mkStdGen 1)
->>> fst $ runIdentity $ move evt board_info game_state1
+>>> monad_stack (move evt) board_info game_state1
 [RenderBoard [((1,4),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
->>> fst $ runIdentity $ move evt board_info game_state2
+>>> monad_stack (move evt) board_info game_state2
 [IncreaseScore,RenderBoard [((2,4),Apple),((2,1),SnakeHead),((1,1),Snake)]]
 
->>> fst $ runIdentity $ move evt board_info game_state3
+>>> monad_stack (move evt) board_info game_state3
 [RenderBoard [((4,1),SnakeHead),((1,1),Snake),((1,3),Empty)]]
 
 >>> let short_snake_seq = SnakeSeq (1,1) Data.Sequence.Empty
 >>> let game_state4 = GameState short_snake_seq apple_pos West (System.Random.mkStdGen 1)
->>> let (events4, game_state4') = runIdentity $ move evt board_info game_state4
->>> events4
+>>> monad_stack (move evt) board_info game_state4
 [RenderBoard [((1,4),SnakeHead),((1,1),Empty)]]
 
 -}
 
-move :: Monad m => Event -> BoardInfo -> GameState -> m ([Board.RenderMessage], GameState)
-move evt bi gs = do
+move :: (MonadReader BoardInfo m, MonadState s m, HasGameState s) => Event -> m [Board.RenderMessage]
+move evt = do
   case evt of
-    Tick -> runAll gs
-    UserEvent m ->
-      if movement gs == opositeMovement m
-      then runAll gs
-      else runAll $ gs {movement = m }
-
-  where
-    runAll :: Monad m => GameState -> m ([Board.RenderMessage], GameState)
-    runAll = runStateT (runReaderT step bi)
+    Tick -> pure ()
+    UserEvent m -> do
+      curMovement <- gets (movement . getGameState)
+      when  (curMovement /= opositeMovement m) $ do
+        modify $ \s -> setGameState s $ (getGameState s) { movement = m }
+  step

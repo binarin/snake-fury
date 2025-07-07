@@ -23,6 +23,7 @@ library
       RenderState
       GameState
       Initialization
+      GameLoop
   other-modules:
       Paths_snake_fury
   hs-source-dirs:

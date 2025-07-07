@@ -4,40 +4,14 @@ module Main where
 
 import Control.Concurrent (
   forkIO,
-  threadDelay,
  )
 import EventQueue (
-  EventQueue (),
-  readEvent,
   writeUserInput,
-  setSpeed,
  )
-import GameState (move, GameState(..))
 import Initialization (gameInitialization)
-import RenderState (BoardInfo, RenderState (gameOver, score), render)
 import System.Environment (getArgs)
 import System.IO (BufferMode (NoBuffering), hSetBinaryMode, hSetBuffering, hSetEcho, stdin, stdout)
-import Control.Monad (unless)
-import Data.ByteString.Builder
-import Control.Monad.Identity
-
--- The game loop is easy:
---   - wait some time
---   - read an Event from the queue
---   - Update the GameState
---   - Update the RenderState based on message delivered by GameState update
---   - Render into the console
-gameloop :: BoardInfo -> GameState -> RenderState -> EventQueue -> IO ()
-gameloop binf gstate rstate queue = do
-  speed <- setSpeed (score rstate) queue
-  threadDelay speed
-  event <- readEvent queue
-  let (delta, gstate') = runIdentity $ move event binf gstate
-  let (rendered, rstate') = runIdentity $ render delta binf rstate
-      isGameOver = gameOver rstate'
-  putStr "\ESC[2J" --This cleans the console screen
-  hPutBuilder stdout rendered
-  unless isGameOver $ gameloop binf gstate' rstate' queue
+import GameLoop (gameloop)
 
 -- | main.
 main :: IO ()
