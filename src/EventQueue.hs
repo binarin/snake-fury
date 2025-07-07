@@ -17,7 +17,7 @@ import Control.Concurrent.BoundedChan (
  )
 import GameState (Movement (..), Event (..))
 import System.IO (hReady, stdin)
-import Control.Monad (forM_)
+import Control.Monad (forM_, void)
 
 -- | the `UserInputQueue` is an asynchronous bounded channel which contains snake movements. This channel is feeded by key strokes
 type UserInputQueue = BoundedChan Movement
@@ -44,7 +44,9 @@ calculateSpeed score initSpeed = initSpeed + ((level * initSpeed) `div` 10)
 -}
 setSpeed :: Int -> EventQueue -> IO Int
 setSpeed score event_queue = do
-  swapMVar (currentSpeed event_queue) (calculateSpeed score (initialSpeed event_queue))
+  let new_speed = calculateSpeed score (initialSpeed event_queue)
+  void $ swapMVar (currentSpeed event_queue) new_speed
+  pure new_speed
 
 -- In StackOverflow we trust.
 -- This function reads the key strokes as a String.

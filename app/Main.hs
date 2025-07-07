@@ -11,7 +11,7 @@ import EventQueue (
 import Initialization (gameInitialization)
 import System.Environment (getArgs)
 import System.IO (BufferMode (NoBuffering), hSetBinaryMode, hSetBuffering, hSetEcho, stdin, stdout)
-import GameLoop (run, AppState(..))
+import GameLoop (run, AppState(..), Env(..))
 
 -- | main.
 main :: IO ()
@@ -31,4 +31,4 @@ main = do
   -- Game Loop. We run two different threads, one for the gameloop (main) and one for user inputs.
   _ <- forkIO $ writeUserInput eventQueue
   let initialState = gameState
-  run binf (AppState initialState renderState) eventQueue
+  run (Env binf eventQueue) (AppState initialState renderState)

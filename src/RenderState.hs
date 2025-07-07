@@ -29,7 +29,6 @@ import Data.Array ( (//), listArray, Array, (!) )
 import Data.ByteString.Builder
 -- import Control.Monad.Trans.Reader (ReaderT (runReaderT), ask)
 -- import Control.Monad.Trans.State.Strict (State, get, gets, runState, modify)
-import Control.Monad (forM_)
 import Control.Monad.State
 import Control.Monad.Reader
 import System.IO (stdout)
@@ -146,35 +145,31 @@ ppCell Apple = stringUtf8 "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
-renderStep ::  (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s) => [RenderMessage] -> m Builder
-renderStep messages = do
-  forM_ messages updateRenderState
+renderStep ::  (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s) => m Builder
+renderStep = do
   (w, h) <- asks (\env -> (width $ getBoardInfo env, height $ getBoardInfo env))
   (brd, sc) <- gets (\st -> (board (getRenderState st), score (getRenderState st)))
   let renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
   let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
   pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
 
-render :: (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s, MonadIO m) => [RenderMessage] -> m ()
-render ms = do
+render :: (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s, MonadIO m) => m ()
+render = do
   liftIO $ putStr "\ESC[2J" --This cleans the console screen
-  renderStep ms >>= liftIO . hPutBuilder stdout
-
+  renderStep >>= liftIO . hPutBuilder stdout
 
 {- |
->>> import Control.Monad.Identity
 >>> let brd = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
 >>> let board_info = BoardInfo 3 4
 >>> let render_state = RenderState brd False 0
->>> let board_updates = [((3, 3), Apple), ((3, 4), Empty)]
 >>> let monad_stack ma = ma `evalStateT` render_state `runReaderT` board_info
->>> monad_stack $ render [RenderBoard board_updates, IncreaseScore]
+>>> monad_stack $ render
 ...
-1
+0
 *********
 - - - -
 - 0 $ -
-- - X -
+- - - X
 
 
 -}
