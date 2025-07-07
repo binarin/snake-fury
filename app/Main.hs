@@ -33,7 +33,7 @@ gameloop binf gstate rstate queue = do
   threadDelay speed
   event <- readEvent queue
   let (delta, gstate') = runIdentity $ move event binf gstate
-  let (rendered, rstate') = render delta binf rstate
+  let (rendered, rstate') = runIdentity $ render delta binf rstate
       isGameOver = gameOver rstate'
   putStr "\ESC[2J" --This cleans the console screen
   hPutBuilder stdout rendered

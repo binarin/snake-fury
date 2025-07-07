@@ -140,15 +140,16 @@ renderStep messages = do
   let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
   pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
 
-render :: [RenderMessage] -> BoardInfo -> RenderState -> (Builder, RenderState)
-render ms bi rs = runState (runReaderT (renderStep ms) bi) rs
+render :: Monad m => [RenderMessage] -> BoardInfo -> RenderState -> m (Builder, RenderState)
+render ms bi rs = runStateT (runReaderT (renderStep ms) bi) rs
 
 
 {- |
+>>> import Control.Monad.Identity
 >>> let brd = listArray ((1,1), (3,4)) [Empty, Empty, Empty, Empty, Empty, Snake, SnakeHead, Empty, Empty, Empty, Empty, Apple]
 >>> let board_info = BoardInfo 3 4
 >>> let render_state = RenderState brd False 0
 >>> let board_updates = [((3, 3), Apple), ((3, 4), Empty)]
->>> fst $ render [RenderBoard board_updates, IncreaseScore] board_info render_state
+>>> fst $ runIdentity $ render [RenderBoard board_updates, IncreaseScore] board_info render_state
 "*********\n1\n*********\n- - - - \n- 0 $ - \n- - X - \n"
 -}
