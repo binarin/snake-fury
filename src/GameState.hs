@@ -10,7 +10,7 @@ This module defines the logic of the game and the communication with the `Board.
 module GameState where
 
 -- These are all the import. Feel free to use more if needed.
-import RenderState (BoardInfo (..), Point, DeltaBoard)
+import RenderState (BoardInfo (..), Point, DeltaBoard, HasBoardInfo (..))
 import qualified RenderState as Board
 import Data.Sequence ( Seq(..) )
 import qualified Data.Sequence as S
@@ -107,9 +107,9 @@ randomCoord maxN = do
   modify (\st -> setGameState st $ (getGameState st) { randomGen = gen })
   pure n
 
-makeRandomPoint :: (MonadState s m, HasGameState s, MonadReader BoardInfo m) => m Point
+makeRandomPoint :: (MonadState s m, HasGameState s, MonadReader env m, HasBoardInfo env) => m Point
 makeRandomPoint = do
-  BoardInfo{height = h, width = w} <- ask
+  BoardInfo{height = h, width = w} <- getBoardInfo <$> ask
   (,) <$> randomCoord h <*> randomCoord w
 
 
@@ -157,7 +157,7 @@ nextHead
 
 
 -- | Calculates a new random apple, avoiding creating the apple in the same place, or in the snake body
-newApple :: (MonadState s m, HasGameState s, MonadReader BoardInfo m) => m Point
+newApple :: (MonadState s m, HasGameState s, MonadReader env m, HasBoardInfo env) => m Point
 newApple = do
   SnakeSeq{snakeHead = sHead, snakeBody = sBody} <- gets (snakeSeq . getGameState)
   aPos <- gets (applePosition . getGameState)
@@ -197,9 +197,9 @@ newApple = do
 
 -- move :: BoardInfo -> GameState -> ([Board.RenderMessage] , GameState)
 
-step :: (MonadState s m, HasGameState s, MonadReader BoardInfo m) => m [Board.RenderMessage]
+step :: (MonadState s m, HasGameState s, MonadReader env m, HasBoardInfo env) => m [Board.RenderMessage]
 step = do
-  newHead <- asks nextHead <*> (getGameState <$> get)
+  newHead <- asks (nextHead . getBoardInfo) <*> (getGameState <$> get)
   appleEaten <- (== newHead) <$> gets (applePosition . getGameState)
   if appleEaten
     then do
@@ -253,7 +253,7 @@ displaceSnake newHead = gets (snakeSeq . getGameState) >>= \case
 
 -}
 
-move :: (MonadReader BoardInfo m, MonadState s m, HasGameState s) => Event -> m [Board.RenderMessage]
+move :: (MonadReader env m, HasBoardInfo env, MonadState s m, HasGameState s) => Event -> m [Board.RenderMessage]
 move evt = do
   case evt of
     Tick -> pure ()

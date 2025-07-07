@@ -70,6 +70,12 @@ instance HasRenderState RenderState where
   getRenderState = id
   setRenderState _ s = s
 
+class HasBoardInfo env where
+  getBoardInfo :: env -> BoardInfo
+
+instance HasBoardInfo BoardInfo where
+  getBoardInfo = id
+
 -- type RenderStep a = ReaderT BoardInfo (State RenderState) a
 newtype RenderStep m a = RenderStep
   { runRenderStep :: ReaderT BoardInfo (StateT RenderState m) a}
@@ -103,7 +109,7 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 
 
 -- | Given tye current render state, and a message -> update the render state
-updateRenderState :: (MonadReader BoardInfo m, MonadState s m, HasRenderState s) => RenderMessage -> m ()
+updateRenderState :: (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s) => RenderMessage -> m ()
 updateRenderState GameOver = modify (\st -> setRenderState st $ (getRenderState st) { gameOver = True })
 updateRenderState (RenderBoard updates) = modify (\st -> setRenderState st $ (getRenderState st) { board = board (getRenderState st) // updates })
 updateRenderState IncreaseScore = do
@@ -140,16 +146,16 @@ ppCell Apple = stringUtf8 "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
-renderStep ::  (MonadReader BoardInfo m, MonadState s m, HasRenderState s) => [RenderMessage] -> m Builder
+renderStep ::  (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s) => [RenderMessage] -> m Builder
 renderStep messages = do
   forM_ messages updateRenderState
-  (w, h) <- asks (\bi -> (width bi, height bi))
+  (w, h) <- asks (\env -> (width $ getBoardInfo env, height $ getBoardInfo env))
   (brd, sc) <- gets (\st -> (board (getRenderState st), score (getRenderState st)))
   let renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
   let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
   pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
 
-render :: (MonadReader BoardInfo m, MonadState s m, HasRenderState s, MonadIO m) => [RenderMessage] -> m ()
+render :: (MonadReader env m, HasBoardInfo env, MonadState s m, HasRenderState s, MonadIO m) => [RenderMessage] -> m ()
 render ms = do
   liftIO $ putStr "\ESC[2J" --This cleans the console screen
   renderStep ms >>= liftIO . hPutBuilder stdout
