@@ -1,15 +1,15 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Eta reduce" #-}
+{-# LANGUAGE FlexibleContexts #-}
 module GameLoop where
-import RenderState (BoardInfo, RenderState(..), render)
-import GameState (GameState, move)
+import RenderState (BoardInfo, RenderState(..), HasRenderState (..), render)
+import GameState (GameState, move, HasGameState (..))
 import EventQueue (EventQueue, setSpeed, readEvent)
 import Control.Concurrent (threadDelay)
 import Control.Monad.Reader (runReaderT, ReaderT, MonadReader)
-import Control.Monad.State (runStateT, StateT, MonadState)
-import Control.Monad.Identity (runIdentity)
-import Data.ByteString.Builder
-import System.IO (stdout)
-import Control.Monad (unless)
+import Control.Monad.State (evalStateT, StateT, MonadState, gets)
+import Control.Monad (unless, void)
 import Control.Monad.IO.Class
 
 data AppState = AppState GameState RenderState
@@ -17,20 +17,26 @@ data AppState = AppState GameState RenderState
 newtype App m a = App { runApp :: ReaderT BoardInfo (StateT AppState m) a }
   deriving (Functor, Applicative, Monad, MonadReader BoardInfo, MonadState AppState, MonadIO)
 
--- The game loop is easy:
---   - wait some time
---   - read an Event from the queue
---   - Update the GameState
---   - Update the RenderState based on message delivered by GameState update
---   - Render into the console
-gameloop :: BoardInfo -> GameState -> RenderState -> EventQueue -> IO ()
-gameloop binf gstate rstate queue = do
-  speed <- setSpeed (score rstate) queue
-  threadDelay speed
-  event <- readEvent queue
-  (delta, gstate') <- runReaderT (runStateT (move event) gstate) binf
-  let (rendered, rstate') = runIdentity $ render delta binf rstate
-      isGameOver = gameOver rstate'
-  putStr "\ESC[2J" --This cleans the console screen
-  hPutBuilder stdout rendered
-  unless isGameOver $ gameloop binf gstate' rstate' queue
+instance HasGameState AppState where
+  getGameState (AppState gs _) = gs
+  setGameState (AppState _ rs) gs = AppState gs rs
+
+instance HasRenderState AppState where
+  getRenderState (AppState _ rs) = rs
+  setRenderState (AppState gs _) rs = AppState gs rs
+
+
+gameStep :: (MonadReader BoardInfo m, MonadState state m, HasGameState state, HasRenderState state, MonadIO m) => EventQueue -> m ()
+gameStep queue = void $ liftIO (readEvent queue) >>= move >>= render
+
+gameloop :: (MonadReader BoardInfo m, MonadState state m, HasGameState state, HasRenderState state, MonadIO m) => EventQueue -> m ()
+gameloop queue = do
+  s <- gets (score . getRenderState)
+  newSpeed <- liftIO $ setSpeed s queue
+  liftIO $ threadDelay newSpeed
+  gameStep queue
+  game_over <- gets (gameOver . getRenderState)
+  unless game_over $ gameloop queue
+
+run :: BoardInfo -> AppState -> EventQueue -> IO ()
+run binf app queue = gameloop queue `evalStateT` app `runReaderT` binf

@@ -32,6 +32,7 @@ import Data.ByteString.Builder
 import Control.Monad (forM_)
 import Control.Monad.State
 import Control.Monad.Reader
+import System.IO (stdout)
 
 -- A point is just a tuple of integers.
 type Point = (Int, Int)
@@ -148,8 +149,10 @@ renderStep messages = do
   let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
   pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
 
-render :: Monad m => [RenderMessage] -> BoardInfo -> RenderState -> m (Builder, RenderState)
-render ms bi rs = runStateT (runReaderT (renderStep ms) bi) rs
+render :: (MonadReader BoardInfo m, MonadState s m, HasRenderState s, MonadIO m) => [RenderMessage] -> m ()
+render ms = do
+  liftIO $ putStr "\ESC[2J" --This cleans the console screen
+  renderStep ms >>= liftIO . hPutBuilder stdout
 
 
 {- |
@@ -158,6 +161,14 @@ render ms bi rs = runStateT (runReaderT (renderStep ms) bi) rs
 >>> let board_info = BoardInfo 3 4
 >>> let render_state = RenderState brd False 0
 >>> let board_updates = [((3, 3), Apple), ((3, 4), Empty)]
->>> fst $ runIdentity $ render [RenderBoard board_updates, IncreaseScore] board_info render_state
-"*********\n1\n*********\n- - - - \n- 0 $ - \n- - X - \n"
+>>> let monad_stack ma = ma `evalStateT` render_state `runReaderT` board_info
+>>> monad_stack $ render [RenderBoard board_updates, IncreaseScore]
+...
+1
+*********
+- - - -
+- 0 $ -
+- - X -
+
+
 -}
