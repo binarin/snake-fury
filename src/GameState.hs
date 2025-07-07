@@ -2,6 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-|
 This module defines the logic of the game and the communication with the `Board.RenderState`
@@ -16,7 +17,7 @@ import qualified Data.Sequence as S
 import System.Random ( StdGen, Random (randomR))
 import Data.Maybe (isJust)
 import qualified Data.Foldable as F
-import Control.Monad.State.Strict (StateT, get, put, modify, gets, runState, MonadState)
+import Control.Monad.State.Strict (StateT, get, put, modify, gets, MonadState, runStateT)
 import Control.Monad.Reader (ReaderT (runReaderT), ask, asks, local, MonadReader)
 import Control.Monad.Trans.Class
 
@@ -46,9 +47,16 @@ data GameState = GameState
   }
   deriving (Show, Eq)
 
+class HasGameState state where
+  getGameState :: state -> GameState
+  setGameState :: state -> GameState -> state
 
 -- type GameStep a = ReaderT BoardInfo (State GameState) a
 newtype GameStep m a = GameStep { runGameStep :: ReaderT BoardInfo (StateT GameState m) a }
+
+instance HasGameState GameState where
+  getGameState = id
+  setGameState _ s = s
 
 instance Functor m => Functor (GameStep m) where
   fmap f (GameStep r) = GameStep $ fmap f r
@@ -92,13 +100,13 @@ opositeMovement West = East
 --   You should take a look to System.Random documentation.
 --   Also, in the import list you have all relevant functions.
 
-randomCoord :: (MonadState GameState m) => Int -> m Int
+randomCoord :: (MonadState s m, HasGameState s) => Int -> m Int
 randomCoord maxN = do
-  (n, gen) <- randomR (1, maxN) <$> gets randomGen
-  modify (\s -> s { randomGen = gen })
+  (n, gen) <- randomR (1, maxN) <$> gets (randomGen . getGameState)
+  modify (\st -> setGameState st $ (getGameState st) { randomGen = gen })
   pure n
 
-makeRandomPoint :: (MonadState GameState m, MonadReader BoardInfo m) => m Point
+makeRandomPoint :: (MonadState s m, HasGameState s, MonadReader BoardInfo m) => m Point
 makeRandomPoint = do
   BoardInfo{height = h, width = w} <- ask
   (,) <$> randomCoord h <*> randomCoord w
@@ -148,10 +156,10 @@ nextHead
 
 
 -- | Calculates a new random apple, avoiding creating the apple in the same place, or in the snake body
-newApple :: (MonadState GameState m, MonadReader BoardInfo m) => m Point
+newApple :: (MonadState s m, HasGameState s, MonadReader BoardInfo m) => m Point
 newApple = do
-  SnakeSeq{snakeHead = sHead, snakeBody = sBody} <- gets snakeSeq
-  aPos <- gets applePosition
+  SnakeSeq{snakeHead = sHead, snakeBody = sBody} <- gets (snakeSeq . getGameState)
+  aPos <- gets (applePosition . getGameState)
   let occupied = aPos : sHead : F.toList sBody
   pt <- makeRandomPoint
   if pt `elem` occupied
@@ -163,7 +171,7 @@ newApple = do
 >>> let apple_pos = (2,2)
 >>> let board_info = BoardInfo 2 2
 >>> let game_state1 = GameState snake_seq apple_pos West (System.Random.mkStdGen 1)
->>> fst $ runState (runReaderT newApple board_info) game_state1
+>>> fst $ runIdentity $ runStateT (runReaderT newApple board_info) game_state1
 (2,1)
 -}
 
@@ -186,32 +194,32 @@ newApple = do
 
 -- move :: BoardInfo -> GameState -> ([Board.RenderMessage] , GameState)
 
-step :: (MonadState GameState m, MonadReader BoardInfo m) => m [Board.RenderMessage]
+step :: (MonadState s m, HasGameState s, MonadReader BoardInfo m) => m [Board.RenderMessage]
 step = do
-  newHead <- asks nextHead <*> get
-  appleEaten <- (== newHead) <$> gets applePosition
+  newHead <- asks nextHead <*> (getGameState <$> get)
+  appleEaten <- (== newHead) <$> gets (applePosition . getGameState)
   if appleEaten
     then do
       ap <- newApple
-      modify (\s -> s { applePosition = ap })
+      modify (\s -> setGameState s $ (getGameState s) { applePosition = ap })
       events <- ((ap, Board.Apple):) <$> extendSnake newHead
       pure [Board.IncreaseScore, Board.RenderBoard events]
     else do
       (: []) . Board.RenderBoard <$> displaceSnake newHead
 
-extendSnake :: MonadState GameState m => Point -> m RenderState.DeltaBoard
+extendSnake :: (MonadState s m, HasGameState s) => Point -> m RenderState.DeltaBoard
 extendSnake newHead = do
-  SnakeSeq{snakeHead = oldHead, snakeBody = sb} <- gets snakeSeq
-  modify (\s -> s { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sb} })
+  SnakeSeq{snakeHead = oldHead, snakeBody = sb} <- gets (snakeSeq . getGameState)
+  modify (\s -> setGameState s $ (getGameState s) { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sb} })
   pure [(newHead, Board.SnakeHead), (oldHead, Board.Snake)]
 
-displaceSnake :: MonadState GameState m => Point -> m RenderState.DeltaBoard
-displaceSnake newHead = gets snakeSeq >>= \case
+displaceSnake :: (MonadState s m, HasGameState s) => Point -> m RenderState.DeltaBoard
+displaceSnake newHead = gets (snakeSeq . getGameState) >>= \case
   SnakeSeq{snakeHead = oldHead, snakeBody = S.Empty} -> do
-    modify (\s -> s { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = S.Empty} })
+    modify (\s -> setGameState s $ (getGameState s) { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = S.Empty} })
     pure [(newHead, Board.SnakeHead), (oldHead, Board.Empty)]
   SnakeSeq{snakeHead = oldHead, snakeBody = sbWithoutTail :|> oldTail} -> do
-    modify (\s -> s { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sbWithoutTail} })
+    modify (\s -> setGameState s $ (getGameState s) { snakeSeq = SnakeSeq{snakeHead = newHead, snakeBody = oldHead :<| sbWithoutTail} })
     pure [(newHead, Board.SnakeHead), (oldHead, Board.Snake), (oldTail, Board.Empty)]
 
 {-|
@@ -242,12 +250,13 @@ displaceSnake newHead = gets snakeSeq >>= \case
 
 move :: Monad m => Event -> BoardInfo -> GameState -> m ([Board.RenderMessage], GameState)
 move evt bi gs = do
-  pure result
+  case evt of
+    Tick -> runAll gs
+    UserEvent m ->
+      if movement gs == opositeMovement m
+      then runAll gs
+      else runAll $ gs {movement = m }
+
   where
-    runAll = runState (runReaderT step bi)
-    result = case evt of
-      Tick -> runAll gs
-      UserEvent m ->
-        if movement gs == opositeMovement m
-          then runAll gs
-          else runAll $ gs {movement = m }
+    runAll :: Monad m => GameState -> m ([Board.RenderMessage], GameState)
+    runAll = runStateT (runReaderT step bi)

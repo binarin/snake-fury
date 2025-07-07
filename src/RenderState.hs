@@ -61,6 +61,14 @@ data RenderState   = RenderState { board :: Board
                                  , gameOver :: Bool
                                  , score :: Int } deriving Show
 
+class HasRenderState state where
+  getRenderState :: state -> RenderState
+  setRenderState :: state -> RenderState -> state
+
+instance HasRenderState RenderState where
+  getRenderState = id
+  setRenderState _ s = s
+
 -- type RenderStep a = ReaderT BoardInfo (State RenderState) a
 newtype RenderStep m a = RenderStep
   { runRenderStep :: ReaderT BoardInfo (StateT RenderState m) a}
@@ -94,12 +102,12 @@ RenderState {board = array ((1,1),(2,2)) [((1,1),SnakeHead),((1,2),Empty),((2,1)
 
 
 -- | Given tye current render state, and a message -> update the render state
-updateRenderState :: (MonadReader BoardInfo m, MonadState RenderState m) => RenderMessage -> m ()
-updateRenderState GameOver = modify (\rs -> rs { gameOver = True })
-updateRenderState (RenderBoard updates) = modify (\rs -> rs { board = board rs // updates })
+updateRenderState :: (MonadReader BoardInfo m, MonadState s m, HasRenderState s) => RenderMessage -> m ()
+updateRenderState GameOver = modify (\st -> setRenderState st $ (getRenderState st) { gameOver = True })
+updateRenderState (RenderBoard updates) = modify (\st -> setRenderState st $ (getRenderState st) { board = board (getRenderState st) // updates })
 updateRenderState IncreaseScore = do
-  curScore <- gets score
-  modify (\rs -> rs { score = curScore + 1 })
+  curScore <- gets (score . getRenderState)
+  modify (\st -> setRenderState st $ (getRenderState st) { score = curScore + 1 })
 
 
 {-|
@@ -131,11 +139,11 @@ ppCell Apple = stringUtf8 "X "
 
 -- | convert the RenderState in a String ready to be flushed into the console.
 --   It should return the Board with a pretty look. If game over, return the empty board.
-renderStep ::  (MonadReader BoardInfo m, MonadState RenderState m) => [RenderMessage] -> m Builder
+renderStep ::  (MonadReader BoardInfo m, MonadState s m, HasRenderState s) => [RenderMessage] -> m Builder
 renderStep messages = do
   forM_ messages updateRenderState
   (w, h) <- asks (\bi -> (width bi, height bi))
-  (brd, sc) <- gets (\rs -> (board rs, score rs))
+  (brd, sc) <- gets (\st -> (board (getRenderState st), score (getRenderState st)))
   let renderLine y = mconcat [ ppCell $ brd ! (y, x) | x <- [1..w] ] <> stringUtf8 "\n"
   let renderScore = stringUtf8 "*********\n" <> intDec sc <> "\n*********\n"
   pure $ renderScore <> mconcat [ renderLine y | y <- [1..h] ]
